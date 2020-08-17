@@ -1528,7 +1528,7 @@ void CRcvQueue::stopWorker()
     m_bClosing = true;
 
     // Sanity check of the function's affinity.
-    if (this_thread::get_id() == m_WorkerThread.get_id())
+    if (srt::sync::this_thread::get_id() == m_WorkerThread.get_id())
     {
         LOGC(mglog.Error, log << "IPE: RcvQ:WORKER TRIES TO CLOSE ITSELF!");
         return; // do nothing else, this would cause a hangup or crash.
