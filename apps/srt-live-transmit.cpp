@@ -514,7 +514,7 @@ int main(int argc, char** argv)
 
             if (!tar.get())
             {
-                tar = Target::Create(cfg.target);
+				tar = Target::Create(cfg.target);
                 if (!tar.get())
                 {
                     cerr << "Unsupported target type" << endl;
