@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <math.h>
 #include <stdexcept>
+#include <signal.h>
+
 #include "sync.h"
 #include "utilities.h"
 #include "udt.h"
