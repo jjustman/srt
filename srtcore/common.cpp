@@ -67,7 +67,8 @@ modified by
 #include "logging.h"
 #include "threadname.h"
 
-#include "srt_compat.h" // SysStrError
+#include <srt_compat.h> // SysStrError
+
 
 using namespace srt::sync;
 
