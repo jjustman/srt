@@ -32,11 +32,13 @@
 #define TIMING_USE_CLOCK_GETTIME
 #endif
 
-
+#ifndef _WIN32
 //jj-2020-08-11 - hack?
 int pthread_cancel(pthread_t h) {
     return pthread_kill(h, 0);
 }
+#endif
+
 
 namespace srt_logging
 {
