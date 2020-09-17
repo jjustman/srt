@@ -224,8 +224,13 @@ void PacketFilter::globalInit()
 
     filters["fec"] = new Creator<FECFilterBuiltin>;
     builtin_filters.insert("fec");
+
+    #ifndef __LIBATSC3_ANDROID__
+
     filters["raptorq"] = new Creator<RaptorQFilterBuiltin>;
     builtin_filters.insert("raptorq");
+
+    #endif
 }
 
 bool PacketFilter::configure(CUDT* parent, CUnitQueue* uq, const std::string& confstr)

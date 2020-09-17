@@ -14,6 +14,8 @@
 #include "packet.h"
 #include "logging.h"
 
+#ifndef __LIBATSC3_ANDROID__
+
 #include "raptorq.h"
 
 using namespace std;
@@ -360,7 +362,7 @@ void RaptorQDecoder::init(size_t source_block_size, size_t symbol_size, int reco
 
 	nOutSymMemSize = K * nSymSize;
 
-	pOutSymMem = static_cast<uint8_t*>(calloc(nOutSymMemSize, sizeof(void)));
+	pOutSymMem = static_cast<uint8_t*>(calloc(nOutSymMemSize, sizeof(uint8_t)));
 
 	ret = RqOutInit(K, pOutWorkMem, nOutWorkMemSize);
 	printf("RqOutInit: Return value: %d\n", ret);
@@ -2863,3 +2865,4 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 //    return colgx;
 //}
 
+#endif
