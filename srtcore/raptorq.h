@@ -19,14 +19,14 @@
 
 /*
 
-./srt-live-transmit  -v -r 1000 -s 1000 "udp://239.239.239.239:30000?rcvbuf=67108864&adapter=20.20.20.25&mode=listener" "srt://:31337?mode=listener&latency=500&packetfilter=raptorq"
-
+TX sender
 ./srt-live-transmit  -v -r 1000 -s 1000 "udp://239.239.239.239:30000?rcvbuf=67108864&adapter=20.20.20.25&mode=listener" "srt://:31337?mode=listener&latency=500&packetfilter=raptorq,source_block_size:512000,symbol_size:1372,recovery_symbols:16"
 
 
+RX recovery
 ./srt-live-transmit -v -r 1000 -s 1000 "srt://localhost:31337" "udp://239.239.239.239:30001?rcvbuf=67108864&adapter=20.20.20.25"
 
- ./srt-live-transmit -v -r 30000 -s 30000 "srt://localhost:31337" "udp://239.239.239.239:30001?rcvbuf=67108864&adapter=20.20.20.25"
+
 
  */
 
@@ -50,7 +50,9 @@ public:
 	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols);
 	 ~RaptorQEncoder();
 
-private:
+	 void encode(uint32_t sbn);
+
+//private:
 
 	size_t nInterWorkMemSize = 0, nInterProgMemSize = 0, nInterSymNumForExec = 0;
 
@@ -71,6 +73,8 @@ private:
 	size_t nOutSymMemSize;
 	uint8_t* pOutSymMem;
 
+	uint32_t nSbnPOutSysMem = 0;
+	int32_t	nControlPacketPosition = -1;
 
 };
 
@@ -79,7 +83,7 @@ public:
 	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols);
 	~RaptorQDecoder();
 
-private:
+//private:
 
     size_t nInterWorkMemSize;
     size_t nInterProgMemSize;
@@ -158,9 +162,11 @@ public:
 
     // SBN / ESI should only be uint32_t and uint32_2, extraSize is 32 bit words
 
-    static const size_t EXTRA_SIZE = 2;
+    static const size_t EXTRA_SIZE = 2; //8 bytes
 
     virtual SRT_ARQLevel arqLevel() ATR_OVERRIDE { return m_fallback_level; }
+
+    int32_t firstSeqNum = -1;
 
     struct RaptorQ_FECHeader {
     	uint32_t	sbn;	//source block number (packet.getSeqNo / m_source_symbols)

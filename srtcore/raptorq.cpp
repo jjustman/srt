@@ -256,6 +256,56 @@ void RaptorQEncoder::init(size_t source_block_size, size_t symbol_size, int reco
 
 }
 
+void RaptorQEncoder::encode(uint32_t sbn) {
+	int ret = 0;
+
+	if(nControlPacketPosition != -1 && nControlPacketPosition != m_recovery_symbols) {
+		printf("RaptorQEncoder::encode - WARNING - entering encode (new sbn: %d) with nControlPacketPosition: %d, nSbnPOut: %d, but expected to have built %d m_recovery_symbols control packets",
+				sbn,
+				nControlPacketPosition,
+				nSbnPOutSysMem,
+				m_recovery_symbols);
+
+	}
+
+	ret = RqInterExecute(pInterProgMem, m_symbol_size, pcInSymMem, nInSymMemSize, pInterSymMem, nInterSymMemSize);
+	//generate the intermediate symbols from the compiled intermediate program and the source symbols.
+
+	printf("RqInterExecute: Return value: %d\n", ret);
+
+	ret = RqOutExecute(pOutProgMem, m_symbol_size, pInterSymMem, (void*)pOutSymMem, nOutSymMemSize);
+
+	printf("RqOutExecute: Return value: %d\n", ret);
+
+//	printf("Source Packet(s):\n");
+//
+//	for(int k=0; k < 1; k++) {
+//		printf("Packet %d: ", k);
+//		for(int j=0; j < nSymSize; j++) {
+//			if(pcInSymMem[(k*nSymSize)+j] != 0) {
+//				printf("s[%04d]:0x%02x ", j, pcInSymMem[(k*nSymSize)+j]);
+//			}
+//
+//		}
+//		printf("\n\n");
+//	}
+//
+//	printf("Recovery Packet(s):\n");
+//	for(int k=0; k < R; k++) {
+//		printf("Packet %d: ", k);
+//		for(int j=0; j < nSymSize; j++) {
+//			if(pOutSymMem[(k*nSymSize)+j] != 0) {
+//				printf("r[%04d]:0x%02x ", j, pOutSymMem[(k*nSymSize)+j]);
+//			}
+//
+//		}
+//		printf("\n\n");
+//	}
+
+	nControlPacketPosition = 0;
+	nSbnPOutSysMem = sbn;
+}
+
 RaptorQEncoder::~RaptorQEncoder() {
 
 	//jjustman-2020-09-16: todo - free calloc's
@@ -437,24 +487,36 @@ RaptorQDecoder::~RaptorQDecoder() {
 
 void RaptorQFilterBuiltin::feedSource(CPacket& packet)
 {
+	int header_offset = 8;
+	int32_t pktSeqNum = packet.getSeqNo();
+	int32_t mySeqNum = 0;
 
+	if(firstSeqNum == -1) {
+		firstSeqNum = pktSeqNum;
+	}
 
-	int size = packet.size();
-	packet.setLength(size+8);
-	size = packet.size();
+	//jjustman-2020-09-17 - TODO - handle wraparounds
+	mySeqNum = pktSeqNum - firstSeqNum;
+
+	//shift down our data for 8 bytes for sbn and esi
+	int original_size = packet.size();
+
+	packet.setLength(original_size+header_offset);
+	int new_size = packet.size();
 	char* data = packet.data();
 
+	memmove(&data[header_offset], data, new_size);
 
 	//printf("packet size: %d, last 2 bytes: 0x%02x, 0x%02x", packet.size(), data[size-2], data[size-1]);
 
+	uint32_t sbn = mySeqNum / m_source_symbols;
+	uint32_t esi = mySeqNum - (sbn * m_source_symbols);
 
-	int32_t seqNum = packet.getSeqNo();
-	uint32_t sbn = seqNum / m_source_symbols;
-	uint32_t esi = seqNum - (sbn * m_source_symbols);
-
-	printf("seqNum: %d, packet size: %d, sbn: %d (prev 0x%02x 0x%02x), esi: %d (prev 0x%02x 0x%02x)\n",
-			seqNum,
-			size,
+	printf("pktSeqNum: %d, mySeqNum: %d, packet size: %d, new_size: %d sbn: %d (prev 0x%02x 0x%02x), esi: %d (prev 0x%02x 0x%02x)\n",
+			pktSeqNum,
+			mySeqNum,
+			original_size,
+			new_size,
 			sbn,
 			(uint8_t)data[0],
 			(uint8_t)data[1],
@@ -465,12 +527,23 @@ void RaptorQFilterBuiltin::feedSource(CPacket& packet)
 	uint32_t sbn_nl = htonl(sbn);
 	uint32_t esi_nl = htonl(esi);
 
-	memcpy(&data[size-8], &sbn_nl, 4);
-	memcpy(&data[size-4], &esi_nl, 4);
+	memcpy(&data[0], &sbn_nl, 4);
+	memcpy(&data[4], &esi_nl, 4);
 
 
+	//push into RaptorQEncoder pcInSymMem
+	//jjustman-2020-09-17 - todo: hashmap based upon SBN
 
+	if(esi == (m_source_symbols-1)) {
+		//last block to copy
+		memcpy(&encoder->pcInSymMem[esi * m_symbol_size], &data[header_offset], m_symbol_size);
+		encoder->encode(sbn);
 
+		//nControlPacketPosition will now be 0, and we can start pushing our repair symbols
+
+	} else {
+		memcpy(&encoder->pcInSymMem[esi * m_symbol_size], &data[header_offset], m_symbol_size);
+	}
 
 
     //    const char* fec_header = pkt.data();
@@ -693,8 +766,38 @@ void RaptorQFilterBuiltin::feedSource(CPacket& packet)
 //        g.payload_clip[i] = g.payload_clip[i] ^ 0;
 //}
 
-bool RaptorQFilterBuiltin::packControlPacket(SrtPacket& rpkt, int32_t seq)
+bool RaptorQFilterBuiltin::packControlPacket(SrtPacket& pkt, int32_t seq)
 {
+
+	//jjustman-2020-09-17 - todo : clamp m_symbol_size to MAX_PKT - 8
+	if(encoder->nControlPacketPosition != -1 && encoder->nControlPacketPosition < m_recovery_symbols) {
+		char* data = pkt.data();
+		pkt.length = m_symbol_size + 8;
+		//pkt.hdr[SRT_PH_SEQNO] = seq;
+		pkt.hdr[SRT_PH_MSGNO] = SRT_MSGNO_CONTROL;
+
+		//write our "sbn" and esi as m_source_symbols + nControlPacketPosition
+		uint32_t sbn = encoder->nSbnPOutSysMem;
+		uint32_t sbn_nl = htonl(sbn);
+		uint32_t esi = m_source_symbols + encoder->nControlPacketPosition;
+		uint32_t esi_nl = htonl(esi);
+
+		memcpy(&data[0], &sbn_nl, 4);
+		memcpy(&data[4], &esi_nl, 4);
+
+		memcpy(&data[8], &encoder->pOutSymMem[encoder->nControlPacketPosition * m_symbol_size], m_symbol_size);
+		printf("packControlPacket: adding control (R: %d) packet with sbn: %d, esi: %d\n",
+				encoder->nControlPacketPosition,
+				sbn,
+				esi);
+
+		encoder->nControlPacketPosition++;
+		if(encoder->nControlPacketPosition == m_recovery_symbols) {
+			encoder->nControlPacketPosition = -1; //sent all our recovery packets
+		}
+
+		return true;
+	}
 //    // If the FEC packet is not yet ready for extraction, do nothing and return false.
 //    // Check if seq is the last sequence of the group.
 //
@@ -853,21 +956,26 @@ bool RaptorQFilterBuiltin::packControlPacket(SrtPacket& rpkt, int32_t seq)
 bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 {
 
-	//    if (rpkt.getMsgSeq() == SRT_MSGNO_CONTROL)
-	//    {
-	//	}
-
-
 	int size = rpkt.size();
 	const char* data = rpkt.data();
 	int new_size = size - 8;
 
 	int32_t seqNum = rpkt.getSeqNo();
-	uint32_t sbn_computed = seqNum / m_source_symbols;
-	uint32_t esi_computed = seqNum - (sbn_computed * m_source_symbols);
 
-	uint32_t sbn_nl = ntohl(*((uint32_t*)(&data[size-8])));
-	uint32_t esi_nl = ntohl(*((uint32_t*)(&data[size-4])));
+	uint32_t sbn = ntohl(*((uint32_t*)(&data[0])));
+	uint32_t esi = ntohl(*((uint32_t*)(&data[4])));
+
+
+	if (rpkt.getMsgSeq() == SRT_MSGNO_CONTROL) {
+		printf("received control: seq: %d, sbn: %d, esi: %d (isR: %d)\n",
+				seqNum,
+				sbn,
+				esi,
+				esi >= m_source_symbols);
+		//jjustman - push to vector<sbn>
+
+		return false;
+	}
 
 	rebuilt.push_back( new_size );
 
@@ -903,22 +1011,24 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 
 	    // The payload clip may be longer than length_hw, but it
 	    // contains only trailing zeros for completion, which are skipped.
-	memcpy(p.buffer, data, new_size);
+	memcpy(p.buffer, &data[8], new_size);
 
 
-	printf("seqNum: %d, original packet size: %d, new size: %d, sbn_header: %d, sbn_computed: %d, esi_header: %d, esi_computed: %d, first 4 bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+	printf("seqNum: %d, original packet size: %d, new size: %d, sbn_header: %d, esi_header: %d, first 4 bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
 				seqNum,
 				size,
 				new_size,
-				sbn_computed,
-				sbn_nl,
-				esi_computed,
-				esi_nl,
+				sbn,
+				esi,
 				(uint8_t)p.buffer[0],
 				(uint8_t)p.buffer[1],
 				(uint8_t)p.buffer[2],
 				(uint8_t)p.buffer[3]
 		);
+
+	//jjustman-2020-09-17 - TODO: copy this into decoder->pcInSymMem[esi] and add
+	//			ret = RqInterAddIds(pInterWorkMem, nP, 1);
+
 
 //    // Add this packet to the group where it belongs.
 //    // Light up the cell of this packet to mark it received.
