@@ -17,16 +17,98 @@
 
 #include <CodornicesRq/rq_api.h>
 
+/*
 
-class RaptorQFilterBuiltin: public SrtPacketFilterBase
+./srt-live-transmit  -v -r 1000 -s 1000 "udp://239.239.239.239:30000?rcvbuf=67108864&adapter=20.20.20.25&mode=listener" "srt://:31337?mode=listener&latency=500&packetfilter=raptorq"
+
+./srt-live-transmit  -v -r 1000 -s 1000 "udp://239.239.239.239:30000?rcvbuf=67108864&adapter=20.20.20.25&mode=listener" "srt://:31337?mode=listener&latency=500&packetfilter=raptorq,source_block_size:512000,symbol_size:1372,recovery_symbols:16"
+
+
+./srt-live-transmit -v -r 1000 -s 1000 "srt://localhost:31337" "udp://239.239.239.239:30001?rcvbuf=67108864&adapter=20.20.20.25"
+
+ ./srt-live-transmit -v -r 30000 -s 30000 "srt://localhost:31337" "udp://239.239.239.239:30001?rcvbuf=67108864&adapter=20.20.20.25"
+
+ */
+
+class IRaptorQSettings {
+protected:
+	size_t 	m_source_block_size; //e.g. 256KB
+	size_t	m_symbol_size;		//should be max(packetlen) and frames padded if < value
+	int		m_recovery_symbols;		//how many recovery symbols (*m_symbol_size) should be generated/transmitted as control packets
+
+	int		m_source_symbols;		//computed as m_source_block_size / m_symbol_size
+};
+
+class IRaptorQCoder : public IRaptorQSettings {
+public:
+	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols) = 0;
+
+};
+
+class RaptorQEncoder : public IRaptorQCoder {
+public:
+	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols);
+	 ~RaptorQEncoder();
+
+private:
+
+	size_t nInterWorkMemSize = 0, nInterProgMemSize = 0, nInterSymNumForExec = 0;
+
+	RqInterWorkMem* pInterWorkMem;
+	RqInterProgram* pInterProgMem;
+
+	size_t nInterSymMemSize;
+	RqInterWorkMem* pInterSymMem;
+
+	size_t nInSymMemSize;
+	uint8_t* pcInSymMem;
+
+	size_t nOutWorkMemSize, nOutProgMemSize;
+
+	RqOutWorkMem* pOutWorkMem;
+	RqOutProgram* pOutProgMem;
+
+	size_t nOutSymMemSize;
+	uint8_t* pOutSymMem;
+
+
+};
+
+class RaptorQDecoder : public IRaptorQCoder {
+public:
+	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols);
+	~RaptorQDecoder();
+
+private:
+
+    size_t nInterWorkMemSize;
+    size_t nInterProgMemSize;
+    size_t nInterSymNumForExec;
+
+    size_t nOutWorkMemSize;
+	size_t nOutProgMemSize;
+
+    RqInterWorkMem* pInterWorkMem;
+	RqInterProgram* pInterProgMem;
+
+	size_t nInterSymMemSize;
+	RqInterWorkMem* pInterSymMem;
+
+	size_t nInSymMemSize;
+	uint8_t* pcInSymMem;
+
+	RqOutWorkMem* pOutWorkMem;
+	RqOutProgram* pOutProgMem;
+
+	size_t nOutSymMemSize;
+	uint8_t* pOutSymMem;
+
+};
+
+class RaptorQFilterBuiltin: public SrtPacketFilterBase, public IRaptorQSettings
 {
     SrtFilterConfig cfg;
 
-    size_t m_source_block_size; //e.g. 256KB
-    size_t m_symbol_size;		//should be max(packetlen) and frames padded if < value
-    int m_recovery_symbols;		//how many recovery symbols (*m_symbol_size) should be generated/transmitted as control packets
-
-    int	m_source_symbols;		//computed as m_source_block_size / m_symbol_size
 
     // Configuration
     SRT_ARQLevel m_fallback_level;

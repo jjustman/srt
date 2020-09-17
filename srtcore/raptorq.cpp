@@ -32,57 +32,15 @@ RaptorQFilterBuiltin::RaptorQFilterBuiltin(const SrtFilterInitializer &init, std
         throw CUDTException(MJ_NOTSUP, MN_INVAL, 0);
 
 
-	const int K = 64;
-	const int nSymSize = 1024;
+	string source_block_size_string = map_get(cfg.parameters, "source_block_size");
+	string symbol_size_string = map_get(cfg.parameters, "symbol_size");
+	string recovery_symbols_string = map_get(cfg.parameters, "recovery_symbols");
 
-	const int R = 8;
-	const char* jj= "jason31337";
+	m_source_block_size = atoi(source_block_size_string.c_str());
+	m_symbol_size = atoi(symbol_size_string.c_str());
+	m_recovery_symbols = atoi(recovery_symbols_string.c_str());
 
-	size_t nInterWorkMemSize = 0, nInterProgMemSize = 0, nInterSymNumForExec = 0;
-	int ret = RqInterGetMemSizes(K, RQ_DEFAULT_MAX_EXTRA, &nInterWorkMemSize, &nInterProgMemSize, &nInterSymNumForExec);
-
-
-	printf("Return value: %d\n", ret);
-	printf("nInterWorkMemSize: %zd\n",	 nInterWorkMemSize);
-	printf("nInterProgMemSize: %zd\n", 	 nInterProgMemSize);
-	printf("nInterSymNumForExec: %zd\n", nInterSymNumForExec);
-
-	RqInterWorkMem* pInterWorkMem = static_cast<RqInterWorkMem*>(calloc(nInterWorkMemSize, sizeof(void*)));
-	RqInterProgram* pInterProgMem = static_cast<RqInterProgram*>(calloc(nInterProgMemSize, sizeof(void*)));
-
-	size_t nInterSymMemSize = nInterSymNumForExec * nSymSize;
-	RqInterWorkMem* pInterSymMem = static_cast<RqInterWorkMem*>(calloc(nInterSymMemSize, sizeof(void*)));
-
-	size_t nInSymMemSize = K * nSymSize; //e.g. 65535 bytes
-	uint8_t* pcInSymMem = static_cast<uint8_t*>(calloc(nInSymMemSize, sizeof(uint8_t)));
-
-	size_t nOutWorkMemSize, nOutProgMemSize;
-	ret = RqOutGetMemSizes(R, &nOutWorkMemSize, &nOutProgMemSize);
-
-	RqOutWorkMem* pOutWorkMem = static_cast<RqOutWorkMem*>(calloc(nOutWorkMemSize, sizeof(void*)));
-	RqOutProgram* pOutProgMem = static_cast<RqOutProgram*>(calloc(nOutProgMemSize, sizeof(void*)));
-
-	size_t nOutSymMemSize = R * nSymSize;
-
-	uint8_t* pOutSymMem = static_cast<uint8_t*>(calloc(nOutSymMemSize, sizeof(uint8_t)));
-
-	ret = RqInterInit(K, 0, pInterWorkMem, nInterWorkMemSize);
-	printf("RqInterInit: Return value: %d\n", ret);
-
-	ret = RqInterAddIds(pInterWorkMem, 0, K);
-	printf("RqInterAddIds: Return value: %d\n", ret);
-
-	ret = RqInterCompile(pInterWorkMem, pInterProgMem, nInterProgMemSize);
-	printf("RqInterCompile: Return value: %d\n", ret);
-
-	ret = RqOutInit(K, pOutWorkMem, nOutWorkMemSize);
-	printf("RqOutInit: Return value: %d\n", ret);
-
-	ret = RqOutAddIds(pOutWorkMem, K, R);
-	printf("RqOutAddIds: Return value: %d\n", ret);
-
-	ret = RqOutCompile(pOutWorkMem, pOutProgMem, nOutProgMemSize);
-	printf("RqOutCompile: Return value: %d\n", ret);
+	m_source_symbols = m_source_block_size / m_symbol_size;
 
 
 
@@ -234,6 +192,115 @@ RaptorQFilterBuiltin::RaptorQFilterBuiltin(const SrtFilterInitializer &init, std
 //    // The bit markers that mark the received/lost packets will be expanded
 //    // as packets come in.
 //    rcv.cell_base = rcv_isn;
+}
+
+void RaptorQEncoder::init(size_t source_block_size, size_t symbol_size, int recovery_symbols) {
+
+	const int K = m_source_symbols;
+	const int nSymSize = m_symbol_size;
+
+	const int R = m_recovery_symbols;
+
+	int ret = RqInterGetMemSizes(K, RQ_DEFAULT_MAX_EXTRA, &nInterWorkMemSize, &nInterProgMemSize, &nInterSymNumForExec);
+
+	printf("Return value: %d\n", ret);
+	printf("nInterWorkMemSize: %zd\n",	 nInterWorkMemSize);
+	printf("nInterProgMemSize: %zd\n", 	 nInterProgMemSize);
+	printf("nInterSymNumForExec: %zd\n", nInterSymNumForExec);
+
+	pInterWorkMem = static_cast<RqInterWorkMem*>(calloc(nInterWorkMemSize, sizeof(void*)));
+	pInterProgMem = static_cast<RqInterProgram*>(calloc(nInterProgMemSize, sizeof(void*)));
+
+	nInterSymMemSize = nInterSymNumForExec * nSymSize;
+	pInterSymMem = static_cast<RqInterWorkMem*>(calloc(nInterSymMemSize, sizeof(void*)));
+
+	nInSymMemSize = K * nSymSize; //e.g. 65535 bytes
+	pcInSymMem = static_cast<uint8_t*>(calloc(nInSymMemSize, sizeof(uint8_t)));
+
+	ret = RqOutGetMemSizes(R, &nOutWorkMemSize, &nOutProgMemSize);
+
+	pOutWorkMem = static_cast<RqOutWorkMem*>(calloc(nOutWorkMemSize, sizeof(void*)));
+	pOutProgMem = static_cast<RqOutProgram*>(calloc(nOutProgMemSize, sizeof(void*)));
+
+	nOutSymMemSize = R * nSymSize;
+
+	pOutSymMem = static_cast<uint8_t*>(calloc(nOutSymMemSize, sizeof(uint8_t)));
+
+	ret = RqInterInit(K, 0, pInterWorkMem, nInterWorkMemSize);
+	printf("RqInterInit: Return value: %d\n", ret);
+
+	ret = RqInterAddIds(pInterWorkMem, 0, K);
+	printf("RqInterAddIds: Return value: %d\n", ret);
+
+	ret = RqInterCompile(pInterWorkMem, pInterProgMem, nInterProgMemSize);
+	printf("RqInterCompile: Return value: %d\n", ret);
+
+	ret = RqOutInit(K, pOutWorkMem, nOutWorkMemSize);
+	printf("RqOutInit: Return value: %d\n", ret);
+
+	ret = RqOutAddIds(pOutWorkMem, K, R);
+	printf("RqOutAddIds: Return value: %d\n", ret);
+
+	ret = RqOutCompile(pOutWorkMem, pOutProgMem, nOutProgMemSize);
+	printf("RqOutCompile: Return value: %d\n", ret);
+
+}
+
+RaptorQEncoder::~RaptorQEncoder() {
+
+	//jjustman-2020-09-16: todo - free calloc's
+
+
+}
+
+
+void RaptorQDecoder::init(size_t source_block_size, size_t symbol_size, int recovery_symbols) {
+
+	int ret = 0;
+	const int K = m_source_symbols;
+	const int nSymSize = m_symbol_size;
+
+	const int R = m_recovery_symbols;
+
+	int nMaxExtra = RQ_DEFAULT_MAX_EXTRA;
+
+	ret = RqInterGetMemSizes(K, nMaxExtra, &nInterWorkMemSize, &nInterProgMemSize, &nInterSymNumForExec);
+	printf("RqInterGetMemSizes: Return value: %d\n", ret);
+
+	pInterWorkMem = static_cast<RqInterWorkMem*>(calloc(nInterWorkMemSize, sizeof(void*)));
+	pInterProgMem = static_cast<RqInterProgram*>(calloc(nInterProgMemSize, sizeof(void*)));
+
+	nInterSymMemSize = nInterSymNumForExec * nSymSize;
+	pInterSymMem = static_cast<RqInterWorkMem*>(calloc(nInterSymMemSize, sizeof(void*)));
+
+	nInSymMemSize = (K + nMaxExtra) * nSymSize; //e.g. 65535 bytes
+	pcInSymMem = static_cast<uint8_t*>(calloc(nInSymMemSize, sizeof(uint8_t)));
+
+	ret = RqOutGetMemSizes(K, &nOutWorkMemSize, &nOutProgMemSize);
+
+	pOutWorkMem = static_cast<RqOutWorkMem*>(calloc(nOutWorkMemSize, sizeof(void*)));
+	pOutProgMem = static_cast<RqOutProgram*>(calloc(nOutProgMemSize, sizeof(void*)));
+
+	nOutSymMemSize = K * nSymSize;
+
+	pOutSymMem = static_cast<uint8_t*>(calloc(nOutSymMemSize, sizeof(void)));
+
+	ret = RqOutInit(K, pOutWorkMem, nOutWorkMemSize);
+	printf("RqOutInit: Return value: %d\n", ret);
+
+	ret = RqOutAddIds(pOutWorkMem, 0, K);
+	printf("RqOutAddIds: Return value: %d\n", ret);
+
+	ret = RqOutCompile(pOutWorkMem, pOutProgMem, nOutProgMemSize);
+	printf("RqOutCompile: Return value: %d\n", ret);
+
+
+}
+
+RaptorQDecoder::~RaptorQDecoder() {
+
+	//jjustman-2020-09-16: todo - free calloc's
+
 }
 //
 //template <class Container>
