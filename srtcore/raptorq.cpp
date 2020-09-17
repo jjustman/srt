@@ -206,6 +206,12 @@ void RaptorQEncoder::init(size_t source_block_size, size_t symbol_size, int reco
 	m_recovery_symbols = recovery_symbols;
 	m_source_symbols = m_source_block_size / m_symbol_size;
 
+	printf("RaptorQEncoder::init, m_source_block_size: %d, m_symbol_size: %d, m_source_symbols: %d, m_recovery_symbols: %d",
+			m_source_block_size,
+			m_symbol_size,
+			m_source_symbols,
+			m_recovery_symbols);
+
 	const int K = m_source_symbols;
 	const int nSymSize = m_symbol_size;
 
@@ -321,13 +327,19 @@ void RaptorQDecoder::init(size_t source_block_size, size_t symbol_size, int reco
 	m_recovery_symbols = recovery_symbols;
 	m_source_symbols = m_source_block_size / m_symbol_size;
 
+	printf("RaptorQDecoder::init, m_source_block_size: %d, m_symbol_size: %d, m_source_symbols: %d",
+			m_source_block_size,
+			m_symbol_size,
+			m_source_symbols);
+
+
 	int ret = 0;
 	const int K = m_source_symbols;
 	const int nSymSize = m_symbol_size;
 
 	const int R = m_recovery_symbols;
 
-	int nMaxExtra = RQ_DEFAULT_MAX_EXTRA;
+	nMaxExtra = RQ_DEFAULT_MAX_EXTRA;
 
 	ret = RqInterGetMemSizes(K, nMaxExtra, &nInterWorkMemSize, &nInterProgMemSize, &nInterSymNumForExec);
 	printf("RqInterGetMemSizes: Return value: %d\n", ret);
@@ -380,6 +392,11 @@ void RaptorQDecoder::pushCPacket(uint32_t sbn, uint32_t esi, CPacket* cPacket) {
 
 //if we have all of our source symbols, we do not need RQ Recovery
 bool RaptorQDecoder::needsRQRecovery(uint32_t sbn) {
+	pair<uint32_t, uint32_t> recoveredSbnSourceRepair = recoveredSbnSourceRepairCount[sbn];
+	if(recoveredSbnSourceRepair.first && recoveredSbnSourceRepair.second) {
+		return false;
+	}
+
 	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
 
 	return sbnRefSource.size() != m_source_symbols;
@@ -405,6 +422,10 @@ int RaptorQDecoder::executeRQRecovery(uint32_t sbn) {
 
 	map<uint32_t, CPacket*>::iterator it;
 
+
+	ret = RqInterInit(m_source_symbols, nMaxExtra, pInterWorkMem, nInterWorkMemSize);
+	printf("RqInterInit: Return value: %d\n", ret);
+
 	int inSymPosition = 0;
 	for(it = sbnRefSource.begin(); it != sbnRefSource.end(); it++) {
 		uint32_t esi = it->first;
@@ -413,10 +434,11 @@ int RaptorQDecoder::executeRQRecovery(uint32_t sbn) {
 		//plus our 8 bytes for sbn/esi
 		memcpy(&pcInSymMem[m_symbol_size * inSymPosition], pkt->getData()+8, m_symbol_size);
 		ret = RqInterAddIds(pInterWorkMem, esi, 1);
-		printf("RqInterAddIds: (S) adding esi: %d, at pos: %d, ret: %d",
+		printf("RqInterAddIds: (S) adding esi: %d, at pos: %d, ret: %d\n",
 				esi,
 				m_symbol_size * inSymPosition,
 				ret);
+		inSymPosition++;
 	}
 
 	for(it=sbnRefRepair.begin(); it != sbnRefRepair.end(); it++) {
@@ -426,12 +448,12 @@ int RaptorQDecoder::executeRQRecovery(uint32_t sbn) {
 		//plus our 8 bytes for sbn/esi
 		memcpy(&pcInSymMem[m_symbol_size * inSymPosition], pkt->getData()+8, m_symbol_size);
 		ret = RqInterAddIds(pInterWorkMem, esi, 1);
-		printf("RqInterAddIds: (R) adding esi: %d, at pos: %d, ret: %d",
+		printf("RqInterAddIds: (R) adding esi: %d, at pos: %d, ret: %d\n",
 				esi,
 				m_symbol_size * inSymPosition,
 				ret);
+		inSymPosition++;
 	}
-
 
 	ret = RqInterCompile(pInterWorkMem, pInterProgMem, nInterProgMemSize);
 	printf("RqInterCompile: Return value: %d\n", ret);
@@ -443,8 +465,43 @@ int RaptorQDecoder::executeRQRecovery(uint32_t sbn) {
 	printf("RqOutExecute: Return value: %d\n", ret);
 
 
+	if(!ret) {
+		recoveredSbnSourceRepairCount[sbn] = make_pair(sbnRefSource.size(), sbnRefRepair.size());
+
+
+	}
+
 	return ret;
 }
+void RaptorQDecoder::discardSbn(uint32_t sbn) {
+	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
+	map<uint32_t, CPacket*>& sbnRefRepair = sbnEsiCpacketRepair[sbn];
+
+	map<uint32_t, CPacket*>::iterator it;
+
+	//jjustman-2020-09-17 - TODO - free CPackets
+	for(it = sbnRefSource.begin(); it != sbnRefSource.end(); it++) {
+		uint32_t esi = it->first;
+		CPacket* pkt = it->second;
+		delete pkt;
+	}
+
+	for(it = sbnRefRepair.begin(); it != sbnRefRepair.end(); it++) {
+		uint32_t esi = it->first;
+		CPacket* pkt = it->second;
+		delete pkt;
+	}
+
+	sbnRefSource.clear();
+	sbnRefRepair.clear();
+
+}
+
+pair<uint32_t, uint32_t> RaptorQDecoder::getRecoveredSbnSourceRepairCount(uint32_t sbn) {
+	pair<uint32_t, uint32_t> sbnSourceRepairCount = recoveredSbnSourceRepairCount[sbn];
+	return recoveredSbnSourceRepairCount[sbn];
+}
+
 
 RaptorQDecoder::~RaptorQDecoder() {
 
@@ -1050,6 +1107,13 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 	uint32_t esi = ntohl(*((uint32_t*)(&data[4])));
 
 
+	//else - fake some packet loss
+	int randPacketLoss = rand() % 100;
+	if(randPacketLoss == 40) {
+		printf("dropping packet: seqNum: %d, sbn: %d, esi: %d\n", seqNum, sbn, esi);
+		return false;
+	}
+
 	if(true) {
 		decoder->pushCPacket(sbn, esi, rpkt.clone());
 	}
@@ -1071,18 +1135,103 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 				canPerformRQRecoveryFlag
 				);
 
-		if(needsRQRecoveryFlag && canPerformRQRecoveryFlag) {
-			int res = decoder->executeRQRecovery(sbn);
-			if(res == 0) {
-				//dispatch our rebuilt packets as needed where we are missing sbnEsiCpacketSource
+		if(needsRQRecoveryFlag) {
+			decoder->pushCPacket(sbn, esi, rpkt.clone());
 
-				printf("*** TODO *** RECOVER %d PACKETS FROM decoder->pOutSysMem", m_source_symbols - decoder->getEsiSourceSize(sbn));
+			//jjustman-2020-09-17 - yes i know its messy...
+			if(canPerformRQRecoveryFlag) {
+				int res = decoder->executeRQRecovery(sbn);
+				if(res == 0) {
+					//dispatch our rebuilt packets as needed where we are missing sbnEsiCpacketSource
 
+					printf("*** TODO *** RECOVER %d PACKETS FROM decoder->pOutSysMem\n", m_source_symbols - decoder->getEsiSourceSize(sbn));
+
+					int lastEsi = -1;
+					map<uint32_t, CPacket*>& sbnRefSource = decoder->sbnEsiCpacketSource[sbn];
+					map<uint32_t, CPacket*>::iterator it;
+
+					for(it = sbnRefSource.begin(); it != sbnRefSource.end(); it++) {
+						uint32_t esi = it->first;
+						CPacket* pkt = it->second;
+
+						if(esi != (lastEsi + 1)) {
+							for(int i=lastEsi + 1; i < esi && i < decoder->getKSourceSymbols(); i++) {
+								int recoverEsi = i;
+								//recover this packet;
+								printf("Recover sbn: %d, esi: %d\n (last esi: %d, next esi: %d)", sbn, recoverEsi, lastEsi, esi);
+
+								rebuilt.push_back( decoder->getSymbolSize());
+
+								PrivPacket& p = rebuilt.back();
+
+//jjustman-2020-09-17 - todo - fix this so we have our SRT headers in the Q payload
+								p.hdr[SRT_PH_SEQNO]     = pkt->header(SRT_PH_SEQNO) - (recoverEsi - lastEsi);
+								p.hdr[SRT_PH_TIMESTAMP] = pkt->header(SRT_PH_TIMESTAMP);
+								p.hdr[SRT_PH_ID] = pkt->header(SRT_PH_ID);
+
+								// This is for live mode only, for now, so the message
+								// number will be always 1, PB_SOLO, INORDER, and flags from clip.
+								// The REXMIT flag is set to 1 to fake that the packet was
+								// retransmitted. It is necessary because this packet will
+								// come out of sequence order, and if such a packet has
+								// no rexmit flag set, it's treated as reordered by network,
+								// which isn't true here.
+
+								p.hdr[SRT_PH_MSGNO] = 1
+								        | MSGNO_PACKET_BOUNDARY::wrap(PB_SOLO)
+
+								        | MSGNO_REXMIT::wrap(true)
+								        ;
+								/*
+								 *
+								 * 								        | MSGNO_PACKET_INORDER::wrap(rcv.order_required)
+								        | MSGNO_ENCKEYSPEC::wrap(g.flag_clip)
+
+								p.hdr[SRT_PH_MSGNO] = rpkt.header(SRT_PH_MSGNO)
+
+								        | MSGNO_PACKET_BOUNDARY::wrap(PB_SOLO)
+								        | MSGNO_PACKET_INORDER::wrap(rcv.order_required)
+								        | MSGNO_ENCKEYSPEC::wrap(g.flag_clip)
+								        | MSGNO_REXMIT::wrap(true)
+								        ;
+
+								p.hdr[SRT_PH_TIMESTAMP] = rpkt.header(SRT_PH_TIMESTAMP);
+								p.hdr[SRT_PH_ID] = rpkt.header(SRT_PH_ID);
+
+								jjustman 2020-09-17 TODO
+								*/
+
+
+								memcpy(p.buffer, &decoder->pOutSymMem[recoverEsi * decoder->getSymbolSize()], decoder->getSymbolSize());
+
+
+								printf("seqNum: %d, original packet size: %d, new size: %d, sbn_header: %d, esi_header: %d, first 4 bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+											seqNum,
+											size,
+											new_size,
+											sbn,
+											recoverEsi,
+											(uint8_t)p.buffer[0],
+											(uint8_t)p.buffer[1],
+											(uint8_t)p.buffer[2],
+											(uint8_t)p.buffer[3]);
+
+							}
+						}
+
+						lastEsi = esi;
+					}
+
+					decoder->discardSbn(sbn);
+				}
 			}
 		}
 
 		return false;
 	}
+
+
+	decoder->pushCPacket(sbn, esi, rpkt.clone());
 
 	//otherwise, push this directly to our
 	rebuilt.push_back( new_size );

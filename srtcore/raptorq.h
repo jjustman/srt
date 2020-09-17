@@ -12,6 +12,8 @@
 #include <map>
 #include <vector>
 #include <deque>
+#include <utility>      // std::pair, std::make_pair
+
 using namespace std;
 
 #include "packetfilter_api.h"
@@ -32,6 +34,10 @@ RX recovery
  */
 
 class IRaptorQSettings {
+public:
+	int getKSourceSymbols() { return m_source_symbols; }
+	int getSymbolSize() { return m_symbol_size; }
+
 protected:
 	size_t 	m_source_block_size; //e.g. 256KB
 	size_t	m_symbol_size;		//should be max(packetlen) and frames padded if < value
@@ -88,10 +94,12 @@ public:
 
 	bool needsRQRecovery(uint32_t sbn);
 	bool canPerformRQRecovery(uint32_t sbn);
+	int getEsiSourceSize(uint32_t sbn);
 
 	int executeRQRecovery(uint32_t sbn);
+	void discardSbn(uint32_t sbn);
 
-	int getEsiSourceSize(uint32_t sbn);
+	pair<uint32_t, uint32_t> getRecoveredSbnSourceRepairCount(uint32_t sbn);
 
 //private:
 
@@ -101,6 +109,8 @@ public:
 
     size_t nOutWorkMemSize;
 	size_t nOutProgMemSize;
+
+	int nMaxExtra;
 
     RqInterWorkMem* pInterWorkMem;
 	RqInterProgram* pInterProgMem;
@@ -119,6 +129,8 @@ public:
 
 	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketSource;
 	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketRepair;
+	map<uint32_t, pair<uint32_t, uint32_t>> recoveredSbnSourceRepairCount;
+
 
 };
 
