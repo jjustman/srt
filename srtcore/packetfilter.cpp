@@ -224,6 +224,8 @@ void PacketFilter::globalInit()
 
     filters["fec"] = new Creator<FECFilterBuiltin>;
     builtin_filters.insert("fec");
+    filters["raptorq"] = new Creator<RaptorQFilterBuiltin>;
+    builtin_filters.insert("raptorq");
 }
 
 bool PacketFilter::configure(CUDT* parent, CUnitQueue* uq, const std::string& confstr)

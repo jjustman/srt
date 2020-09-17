@@ -15,4 +15,7 @@
 // Integration header
 #include "fec.h"
 
+//jjustman-2020-09-16 - raptorq
+#include "raptorq.h"
+
 #endif

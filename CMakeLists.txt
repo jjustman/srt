@@ -126,6 +126,8 @@ option(ENABLE_STDCXX_SYNC "Use C++11 chrono and threads for timing instead of pt
 option(USE_OPENSSL_PC "Use pkg-config to find OpenSSL libraries" ON)
 option(USE_BUSY_WAITING "Enable more accurate sending times at a cost of potentially higher CPU load" OFF)
 option(USE_GNUSTL "Get c++ library/headers from the gnustl.pc" OFF)
+option(ENABLE_RAPTORQ "enable raptorq fec." OFF)
+
 
 set(TARGET_srt "srt" CACHE STRING "The name for the SRT library")
 
@@ -148,6 +150,14 @@ else()
 		message(STATUS "LOGGING: ENABLED")
 	endif()
 endif()
+
+
+if(ENABLE_RAPTORQ) 
+	message(STATUS "ENABLE_RAPTORQ: ON ${CMAKE_BINARY_DIR}")
+	list(APPEND SRT_EXTRA_CFLAGS "-I${CMAKE_SOURCE_DIR}/../codornicesrq/CodornicesRq-2.2-Linux-x86_64/include/")
+	set(RAPTORQ_LIBRARIES "${CMAKE_BINARY_DIR}/../codornicesrq/CodornicesRq-2.2-Linux-x86_64/lib/libCodornicesRq.so")
+endif()
+
 
 if (USE_BUSY_WAITING)
 	message(STATUS "USE_BUSY_WAITING: ON")
@@ -809,7 +819,7 @@ if (srt_libspec_shared)
 	set_target_properties (${TARGET_srt}_shared PROPERTIES VERSION ${SRT_VERSION} SOVERSION ${SRT_VERSION_MAJOR})
 	list (APPEND INSTALL_TARGETS ${TARGET_srt}_shared)
 	if (ENABLE_ENCRYPTION)
-		target_link_libraries(${TARGET_srt}_shared PRIVATE ${SSL_LIBRARIES})
+		target_link_libraries(${TARGET_srt}_shared PRIVATE ${SSL_LIBRARIES} ${RAPTORQ_LIBRARIES})
 	endif()
 	if (MICROSOFT)
 		target_link_libraries(${TARGET_srt}_shared PRIVATE ws2_32.lib)
@@ -824,7 +834,7 @@ if (srt_libspec_shared)
 		set_property(TARGET ${TARGET_srt}_shared PROPERTY MACOSX_RPATH ON)
 	endif()
 	if (USE_GNUSTL)
-		target_link_libraries(${TARGET_srt}_shared PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS})
+		target_link_libraries(${TARGET_srt}_shared PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS} ${RAPTORQ_LIBRARIES})
 	endif()
 endif()
 
@@ -847,7 +857,7 @@ if (srt_libspec_static)
 
 	list (APPEND INSTALL_TARGETS ${TARGET_srt}_static)
 	if (ENABLE_ENCRYPTION)
-		target_link_libraries(${TARGET_srt}_static PRIVATE ${SSL_LIBRARIES})
+		target_link_libraries(${TARGET_srt}_static PRIVATE ${SSL_LIBRARIES} ${RAPTORQ_LIBRARIES})
 	endif()
 	if (MICROSOFT)
 		target_link_libraries(${TARGET_srt}_static PRIVATE ws2_32.lib)
@@ -858,7 +868,7 @@ if (srt_libspec_static)
 		target_link_libraries(${TARGET_srt}_static PRIVATE wsock32 ws2_32)
 	endif()
 	if (USE_GNUSTL)
-		target_link_libraries(${TARGET_srt}_static PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS})
+		target_link_libraries(${TARGET_srt}_static PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS} ${RAPTORQ_LIBRARIES})
 	endif()
 endif()
 
@@ -957,6 +967,8 @@ if(ENABLE_CXX_DEPS)
 	endforeach()
 endif()
 
+
+
 join_arguments(SRT_LIBS_PRIVATE ${SRT_LIBS_PRIVATE})
 
 # haisrt.pc left temporarily for backward compatibility. To be removed in future!
@@ -1014,10 +1026,10 @@ macro(srt_make_application name)
 
 	target_link_libraries(${name} ${srt_link_library})
 	if (USE_GNUSTL)
-		target_link_libraries(${name} PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS})
+		target_link_libraries(${name} PRIVATE ${GNUSTL_LIBRARIES} ${GNUSTL_LDFLAGS} ${RAPTORQ_LIBRARIES})
 	endif()
 	if (srt_libspec_static AND CMAKE_DL_LIBS)
-		target_link_libraries(${name} ${CMAKE_DL_LIBS})
+		target_link_libraries(${name} ${CMAKE_DL_LIBS}  ${RAPTORQ_LIBRARIES})
 	endif()
 endmacro()
 
