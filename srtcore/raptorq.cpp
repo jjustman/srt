@@ -42,6 +42,11 @@ RaptorQFilterBuiltin::RaptorQFilterBuiltin(const SrtFilterInitializer &init, std
 
 	m_source_symbols = m_source_block_size / m_symbol_size;
 
+	encoder = new RaptorQEncoder;
+	decoder = new RaptorQDecoder;
+
+	encoder->init(m_source_block_size, m_symbol_size, m_recovery_symbols);
+	decoder->init(m_source_block_size, m_symbol_size, m_recovery_symbols);
 
 
 //
@@ -195,6 +200,10 @@ RaptorQFilterBuiltin::RaptorQFilterBuiltin(const SrtFilterInitializer &init, std
 }
 
 void RaptorQEncoder::init(size_t source_block_size, size_t symbol_size, int recovery_symbols) {
+	m_source_block_size = source_block_size;
+	m_symbol_size = symbol_size;
+	m_recovery_symbols = recovery_symbols;
+	m_source_symbols = m_source_block_size / m_symbol_size;
 
 	const int K = m_source_symbols;
 	const int nSymSize = m_symbol_size;
@@ -255,6 +264,11 @@ RaptorQEncoder::~RaptorQEncoder() {
 
 
 void RaptorQDecoder::init(size_t source_block_size, size_t symbol_size, int recovery_symbols) {
+
+	m_source_block_size = source_block_size;
+	m_symbol_size = symbol_size;
+	m_recovery_symbols = recovery_symbols;
+	m_source_symbols = m_source_block_size / m_symbol_size;
 
 	int ret = 0;
 	const int K = m_source_symbols;

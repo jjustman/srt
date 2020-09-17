@@ -109,6 +109,8 @@ class RaptorQFilterBuiltin: public SrtPacketFilterBase, public IRaptorQSettings
 {
     SrtFilterConfig cfg;
 
+    RaptorQEncoder* encoder;
+    RaptorQDecoder* decoder;
 
     // Configuration
     SRT_ARQLevel m_fallback_level;
