@@ -26,6 +26,7 @@ using namespace srt_logging;
 RaptorQFilterBuiltin::RaptorQFilterBuiltin(const SrtFilterInitializer &init, std::vector<SrtPacket> &provided, const string &confstr)
     : SrtPacketFilterBase(init)
     , m_fallback_level(SRT_ARQ_ONREQ)
+	, rebuilt(provided)
 
 {
     if (!ParseFilterConfig(confstr, cfg))
@@ -436,6 +437,53 @@ RaptorQDecoder::~RaptorQDecoder() {
 
 void RaptorQFilterBuiltin::feedSource(CPacket& packet)
 {
+
+
+	int size = packet.size();
+	packet.setLength(size+8);
+	size = packet.size();
+	char* data = packet.data();
+
+
+	//printf("packet size: %d, last 2 bytes: 0x%02x, 0x%02x", packet.size(), data[size-2], data[size-1]);
+
+
+	int32_t seqNum = packet.getSeqNo();
+	uint32_t sbn = seqNum / m_source_symbols;
+	uint32_t esi = seqNum - (sbn * m_source_symbols);
+
+	printf("seqNum: %d, packet size: %d, sbn: %d (prev 0x%02x 0x%02x), esi: %d (prev 0x%02x 0x%02x)\n",
+			seqNum,
+			size,
+			sbn,
+			(uint8_t)data[0],
+			(uint8_t)data[1],
+			esi,
+			(uint8_t)data[2],
+			(uint8_t)data[3]);
+
+	uint32_t sbn_nl = htonl(sbn);
+	uint32_t esi_nl = htonl(esi);
+
+	memcpy(&data[size-8], &sbn_nl, 4);
+	memcpy(&data[size-4], &esi_nl, 4);
+
+
+
+
+
+
+    //    const char* fec_header = pkt.data();
+    //    const char* payload = fec_header + 4;
+    //    size_t payload_clip_len = pkt.size() - 4;
+    //
+    //    const uint8_t* flag_clip = (const uint8_t*)(fec_header + 1);
+    //    const uint16_t* length_clip = (const uint16_t*)(fec_header + 2);
+    //
+    //    uint32_t timestamp_hw = pkt.getMsgTimeStamp();
+
+
+
     // Hang on the matrix. Find by packet->getSeqNo().
 
     //    (The "absolute base" is the cell 0 in vertical groups)
@@ -804,6 +852,74 @@ bool RaptorQFilterBuiltin::packControlPacket(SrtPacket& rpkt, int32_t seq)
 
 bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 {
+
+	//    if (rpkt.getMsgSeq() == SRT_MSGNO_CONTROL)
+	//    {
+	//	}
+
+
+	int size = rpkt.size();
+	const char* data = rpkt.data();
+	int new_size = size - 8;
+
+	int32_t seqNum = rpkt.getSeqNo();
+	uint32_t sbn_computed = seqNum / m_source_symbols;
+	uint32_t esi_computed = seqNum - (sbn_computed * m_source_symbols);
+
+	uint32_t sbn_nl = ntohl(*((uint32_t*)(&data[size-8])));
+	uint32_t esi_nl = ntohl(*((uint32_t*)(&data[size-4])));
+
+	rebuilt.push_back( new_size );
+
+	PrivPacket& p = rebuilt.back();
+
+	p.hdr[SRT_PH_SEQNO] = rpkt.getSeqNo();
+
+	// This is for live mode only, for now, so the message
+	// number will be always 1, PB_SOLO, INORDER, and flags from clip.
+	// The REXMIT flag is set to 1 to fake that the packet was
+	// retransmitted. It is necessary because this packet will
+	// come out of sequence order, and if such a packet has
+	// no rexmit flag set, it's treated as reordered by network,
+	// which isn't true here.
+	p.hdr[SRT_PH_MSGNO] = rpkt.header(SRT_PH_MSGNO);
+
+//	        | MSGNO_PACKET_BOUNDARY::wrap(PB_SOLO)
+//	        | MSGNO_PACKET_INORDER::wrap(rcv.order_required)
+//	        | MSGNO_ENCKEYSPEC::wrap(g.flag_clip)
+//	        | MSGNO_REXMIT::wrap(true)
+//	        ;
+
+	p.hdr[SRT_PH_TIMESTAMP] = rpkt.header(SRT_PH_TIMESTAMP);
+	p.hdr[SRT_PH_ID] = rpkt.header(SRT_PH_ID);
+
+	    // Header ready, now we rebuild the contents
+	    // First, rebuild the length.
+
+	    // Allocate the buffer and assign to a packet.
+	    // This is only temporary, it will be copied to
+	    // the target place when needed, with the buffer coming
+	    // from the unit queue.
+
+	    // The payload clip may be longer than length_hw, but it
+	    // contains only trailing zeros for completion, which are skipped.
+	memcpy(p.buffer, data, new_size);
+
+
+	printf("seqNum: %d, original packet size: %d, new size: %d, sbn_header: %d, sbn_computed: %d, esi_header: %d, esi_computed: %d, first 4 bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+				seqNum,
+				size,
+				new_size,
+				sbn_computed,
+				sbn_nl,
+				esi_computed,
+				esi_nl,
+				(uint8_t)p.buffer[0],
+				(uint8_t)p.buffer[1],
+				(uint8_t)p.buffer[2],
+				(uint8_t)p.buffer[3]
+		);
+
 //    // Add this packet to the group where it belongs.
 //    // Light up the cell of this packet to mark it received.
 //    // Check if any of the groups to which the packet belongs
@@ -946,7 +1062,7 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 //    // - ARQ_ALWAYS: always return true and leave loss_seqs empty.
 //    // - others: return false and return nothing in loss_seqs
 
-	return true;
+	return false;
 }
 //
 //void FECFilterBuiltin::CheckLargeDrop(int32_t seqno)

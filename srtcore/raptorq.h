@@ -118,6 +118,58 @@ class RaptorQFilterBuiltin: public SrtPacketFilterBase, public IRaptorQSettings
 public:
 
 
+    RaptorQFilterBuiltin(const SrtFilterInitializer& init, std::vector<SrtPacket>& provided, const std::string& confstr);
+
+    // Sender side
+
+    // This function creates and stores the FEC control packet with
+    // a prediction to be immediately sent. This is called in the function
+    // that normally is prepared for extracting a data packet from the sender
+    // buffer and send it over the channel.
+    virtual bool packControlPacket(SrtPacket& r_packet, int32_t seq) ATR_OVERRIDE;
+
+    // This is called at the moment when the sender queue decided to pick up
+    // a new packet from the scheduled packets. This should be then used to
+    // continue filling the group, possibly followed by final calculating the
+    // FEC control packet ready to send.
+    virtual void feedSource(CPacket& r_packet) ATR_OVERRIDE;
+
+    // Receiver side
+
+    // This function is called at the moment when a new data packet has
+    // arrived (no matter if subsequent or recovered). The 'state' value
+    // defines the configured level of loss state required to send the
+    // loss report.
+    virtual bool receive(const CPacket& pkt, loss_seqs_t& loss_seqs) ATR_OVERRIDE;
+
+    // Configuration
+
+    // This is the size that is needed extra by packets operated by this corrector.
+    // It should be subtracted from a current maximum value for SRTO_PAYLOADSIZE
+
+    // The default FEC uses extra space only for FEC/CTL packet.
+    // The timestamp clip is placed in the timestamp field in the header.
+    // The payload contains:
+    // - the length clip
+    // - the flag spec
+    // - the payload clip
+    // The payload clip takes simply the current length of SRTO_PAYLOADSIZE.
+    // So extra 4 bytes are needed, 2 for flags, 2 for length clip.
+
+    // SBN / ESI should only be uint32_t and uint32_2, extraSize is 32 bit words
+
+    static const size_t EXTRA_SIZE = 2;
+
+    virtual SRT_ARQLevel arqLevel() ATR_OVERRIDE { return m_fallback_level; }
+
+    struct RaptorQ_FECHeader {
+    	uint32_t	sbn;	//source block number (packet.getSeqNo / m_source_symbols)
+    	uint32_t	esi;	//encoding symbol id
+    };
+
+    typedef SrtPacket PrivPacket;
+    std::vector<PrivPacket>& rebuilt;
+
 //    struct Group
 //    {
 //        int32_t base;     //< Sequence of the first packet in the group
@@ -278,52 +330,6 @@ private:
 //    void CollectIrrecoverRow(RcvGroup& g, loss_seqs_t& irrecover) const;
 //    bool IsLost(int32_t seq) const;
 
-public:
-
-    RaptorQFilterBuiltin(const SrtFilterInitializer& init, std::vector<SrtPacket>& provided, const std::string& confstr);
-
-    // Sender side
-
-    // This function creates and stores the FEC control packet with
-    // a prediction to be immediately sent. This is called in the function
-    // that normally is prepared for extracting a data packet from the sender
-    // buffer and send it over the channel.
-    virtual bool packControlPacket(SrtPacket& r_packet, int32_t seq) ATR_OVERRIDE;
-
-    // This is called at the moment when the sender queue decided to pick up
-    // a new packet from the scheduled packets. This should be then used to
-    // continue filling the group, possibly followed by final calculating the
-    // FEC control packet ready to send.
-    virtual void feedSource(CPacket& r_packet) ATR_OVERRIDE;
-
-    // Receiver side
-
-    // This function is called at the moment when a new data packet has
-    // arrived (no matter if subsequent or recovered). The 'state' value
-    // defines the configured level of loss state required to send the
-    // loss report.
-    virtual bool receive(const CPacket& pkt, loss_seqs_t& loss_seqs) ATR_OVERRIDE;
-
-    // Configuration
-
-    // This is the size that is needed extra by packets operated by this corrector.
-    // It should be subtracted from a current maximum value for SRTO_PAYLOADSIZE
-
-    // The default FEC uses extra space only for FEC/CTL packet.
-    // The timestamp clip is placed in the timestamp field in the header.
-    // The payload contains:
-    // - the length clip
-    // - the flag spec
-    // - the payload clip
-    // The payload clip takes simply the current length of SRTO_PAYLOADSIZE.
-    // So extra 4 bytes are needed, 2 for flags, 2 for length clip.
-
-    // SBN / ESI should only be uint32_t and uint8t, extraSize is 32 bit words
-
-    //extra size is actually
-    static const size_t EXTRA_SIZE = 4;
-
-    virtual SRT_ARQLevel arqLevel() ATR_OVERRIDE { return m_fallback_level; }
 };
 
 #endif
