@@ -12,6 +12,7 @@
 #include <map>
 #include <vector>
 #include <deque>
+using namespace std;
 
 #include "packetfilter_api.h"
 
@@ -73,8 +74,8 @@ public:
 	size_t nOutSymMemSize;
 	uint8_t* pOutSymMem;
 
-	uint32_t nSbnPOutSysMem = 0;
-	int32_t	nControlPacketPosition = -1;
+	uint32_t nSbnPOutSysMem = 0;  			//keep track of our current sbn for packControlPacket generation
+	int32_t	nControlPacketPosition = -1;	//keep track of our R index when flushing out packControlPacket
 
 };
 
@@ -82,6 +83,15 @@ class RaptorQDecoder : public IRaptorQCoder {
 public:
 	virtual void init(size_t source_block_size, size_t symbol_size, int recovery_symbols);
 	~RaptorQDecoder();
+
+	void pushCPacket(uint32_t sbn, uint32_t esi, CPacket* cPacket);
+
+	bool needsRQRecovery(uint32_t sbn);
+	bool canPerformRQRecovery(uint32_t sbn);
+
+	int executeRQRecovery(uint32_t sbn);
+
+	int getEsiSourceSize(uint32_t sbn);
 
 //private:
 
@@ -106,6 +116,9 @@ public:
 
 	size_t nOutSymMemSize;
 	uint8_t* pOutSymMem;
+
+	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketSource;
+	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketRepair;
 
 };
 

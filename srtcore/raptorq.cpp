@@ -359,7 +359,91 @@ void RaptorQDecoder::init(size_t source_block_size, size_t symbol_size, int reco
 	ret = RqOutCompile(pOutWorkMem, pOutProgMem, nOutProgMemSize);
 	printf("RqOutCompile: Return value: %d\n", ret);
 
+}
 
+void RaptorQDecoder::pushCPacket(uint32_t sbn, uint32_t esi, CPacket* cPacket) {
+
+	if(esi >= m_source_symbols) {
+		map<uint32_t, CPacket*>& sbnRef = sbnEsiCpacketRepair[sbn];
+		CPacket* cpacketRef = sbnRef[esi];
+		if(!cpacketRef) {
+			sbnRef[esi] = cPacket;
+		}
+	} else {
+		map<uint32_t, CPacket*>& sbnRef = sbnEsiCpacketSource[sbn];
+		CPacket* cpacketRef = sbnRef[esi];
+		if(!cpacketRef) {
+			sbnRef[esi] = cPacket;
+		}
+	}
+}
+
+//if we have all of our source symbols, we do not need RQ Recovery
+bool RaptorQDecoder::needsRQRecovery(uint32_t sbn) {
+	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
+
+	return sbnRefSource.size() != m_source_symbols;
+}
+
+int RaptorQDecoder::getEsiSourceSize(uint32_t sbn) {
+	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
+
+	return sbnRefSource.size();
+}
+//check if we can perform RQ recovery with M_symbols > Ksource_symbols
+bool RaptorQDecoder::canPerformRQRecovery(uint32_t sbn) {
+	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
+	map<uint32_t, CPacket*>& sbnRefRepair = sbnEsiCpacketRepair[sbn];
+
+	return (sbnRefSource.size() + sbnRefRepair.size()) >= m_source_symbols;
+}
+
+int RaptorQDecoder::executeRQRecovery(uint32_t sbn) {
+	int ret = 0;
+	map<uint32_t, CPacket*>& sbnRefSource = sbnEsiCpacketSource[sbn];
+	map<uint32_t, CPacket*>& sbnRefRepair = sbnEsiCpacketRepair[sbn];
+
+	map<uint32_t, CPacket*>::iterator it;
+
+	int inSymPosition = 0;
+	for(it = sbnRefSource.begin(); it != sbnRefSource.end(); it++) {
+		uint32_t esi = it->first;
+		CPacket* pkt = it->second;
+
+		//plus our 8 bytes for sbn/esi
+		memcpy(&pcInSymMem[m_symbol_size * inSymPosition], pkt->getData()+8, m_symbol_size);
+		ret = RqInterAddIds(pInterWorkMem, esi, 1);
+		printf("RqInterAddIds: (S) adding esi: %d, at pos: %d, ret: %d",
+				esi,
+				m_symbol_size * inSymPosition,
+				ret);
+	}
+
+	for(it=sbnRefRepair.begin(); it != sbnRefRepair.end(); it++) {
+		uint32_t esi = it->first;
+		CPacket* pkt = it->second;
+
+		//plus our 8 bytes for sbn/esi
+		memcpy(&pcInSymMem[m_symbol_size * inSymPosition], pkt->getData()+8, m_symbol_size);
+		ret = RqInterAddIds(pInterWorkMem, esi, 1);
+		printf("RqInterAddIds: (R) adding esi: %d, at pos: %d, ret: %d",
+				esi,
+				m_symbol_size * inSymPosition,
+				ret);
+	}
+
+
+	ret = RqInterCompile(pInterWorkMem, pInterProgMem, nInterProgMemSize);
+	printf("RqInterCompile: Return value: %d\n", ret);
+
+	ret = RqInterExecute(pInterProgMem, m_symbol_size, pcInSymMem, nInSymMemSize, pInterSymMem, nInterSymMemSize);
+	printf("RqInterExecute: Return value: %d\n", ret);
+
+	ret = RqOutExecute(pOutProgMem, m_symbol_size, pInterSymMem, pOutSymMem, nOutSymMemSize);
+	printf("RqOutExecute: Return value: %d\n", ret);
+
+
+	return ret;
 }
 
 RaptorQDecoder::~RaptorQDecoder() {
@@ -966,17 +1050,41 @@ bool RaptorQFilterBuiltin::receive(const CPacket& rpkt, loss_seqs_t& loss_seqs)
 	uint32_t esi = ntohl(*((uint32_t*)(&data[4])));
 
 
+	if(true) {
+		decoder->pushCPacket(sbn, esi, rpkt.clone());
+	}
+
+	//RQ only makes sense if we have at least one "control" (repair) packet present
+	//jjustman-2020-09-17 - TODO: purge if we don't need RQ or if we would be otherwise incomplete RQ after exceeding our latency
 	if (rpkt.getMsgSeq() == SRT_MSGNO_CONTROL) {
-		printf("received control: seq: %d, sbn: %d, esi: %d (isR: %d)\n",
+		bool needsRQRecoveryFlag = decoder->needsRQRecovery(sbn);
+		bool canPerformRQRecoveryFlag = decoder->canPerformRQRecovery(sbn);
+
+		printf("received control: seq: %d, sbn: %d, esi: %d (isR: %d), needsRQRecoveryFlag: %d (Msource: %d, Ksource: %d), canPerformRQRecoveryFlag: %d\n",
 				seqNum,
 				sbn,
 				esi,
-				esi >= m_source_symbols);
-		//jjustman - push to vector<sbn>
+				esi >= m_source_symbols,
+				needsRQRecoveryFlag,
+				decoder->getEsiSourceSize(sbn),
+				m_source_symbols,
+				canPerformRQRecoveryFlag
+				);
+
+		if(needsRQRecoveryFlag && canPerformRQRecoveryFlag) {
+			int res = decoder->executeRQRecovery(sbn);
+			if(res == 0) {
+				//dispatch our rebuilt packets as needed where we are missing sbnEsiCpacketSource
+
+				printf("*** TODO *** RECOVER %d PACKETS FROM decoder->pOutSysMem", m_source_symbols - decoder->getEsiSourceSize(sbn));
+
+			}
+		}
 
 		return false;
 	}
 
+	//otherwise, push this directly to our
 	rebuilt.push_back( new_size );
 
 	PrivPacket& p = rebuilt.back();
