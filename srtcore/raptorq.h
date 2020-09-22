@@ -18,7 +18,6 @@ using namespace std;
 
 #include "packetfilter_api.h"
 
-#ifndef __LIBATSC3_ANDROID__
 #include <CodornicesRq/rq_api.h>
 
 /*
@@ -363,6 +362,5 @@ private:
 //    bool IsLost(int32_t seq) const;
 
 };
-#endif
 
 #endif
