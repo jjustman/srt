@@ -127,9 +127,9 @@ public:
 	size_t nOutSymMemSize;
 	uint8_t* pOutSymMem;
 
-	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketSource;
-	map<uint32_t, map<uint32_t, CPacket*>> sbnEsiCpacketRepair;
-	map<uint32_t, pair<uint32_t, uint32_t>> recoveredSbnSourceRepairCount;
+	map<uint32_t, map<uint32_t, CPacket*> > sbnEsiCpacketSource;
+	map<uint32_t, map<uint32_t, CPacket*> > sbnEsiCpacketRepair;
+	map<uint32_t, pair<uint32_t, uint32_t> > recoveredSbnSourceRepairCount;
 
 
 };
