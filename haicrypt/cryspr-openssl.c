@@ -30,6 +30,8 @@ typedef struct tag_crysprOpenSSL_AES_cb {
 
 int crysprOpenSSL_Prng(unsigned char *rn, int len)
 {
+    printf("crysprOpenSSL_Prng\n");
+
     return(RAND_bytes(rn, len) <= 0 ? -1 : 0);
 }
 
@@ -172,6 +174,9 @@ static CRYSPR_methods crysprOpenSSL_methods;
 
 CRYSPR_methods *crysprOpenSSL(void)
 {
+
+    printf("cryspr-openssl.c::crysprOpenSSL\n");
+
     if(NULL == crysprOpenSSL_methods.open) {
         crysprInit(&crysprOpenSSL_methods);    //Default/fallback methods
 
@@ -212,6 +217,8 @@ CRYSPR_methods *crysprOpenSSL(void)
     //	crysprOpenSSL_methods.ms_encrypt =
     //	crysprOpenSSL_methods.ms_decrypt =
     }
+
+    printf("cryspr-openssl.c::crysprOpenSSL return\n");
     return(&crysprOpenSSL_methods);
 }
 
