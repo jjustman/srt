@@ -2160,6 +2160,12 @@ int FECFilterBuiltin::ExtendColumns(int colgx)
         int32_t oldbase SRT_ATR_UNUSED = rcv.colq[0].base;
         rcv.colq.erase(rcv.colq.begin(), rcv.colq.begin() + numberCols());
         colgx -= numberCols();
+         
+        //jjustman-2020-09-08 - fix for deque subscript out of range?
+        if (!rcv.colq.size())
+        {
+            return -1;          
+        }
         int32_t newbase = rcv.colq[0].base;
 
         // Delete also appropriate number of rows for one series
