@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{C8A94205-5DDA-43B6-928B-AEB7370A1FF6}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;SRT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+    <Link>
+      <TargetMachine>MachineX86</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SRT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <TargetMachine>MachineX86</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="apps\apputil.cpp" />
+    <ClCompile Include="apps\logsupport.cpp" />
+    <ClCompile Include="apps\socketoptions.cpp" />
+    <ClCompile Include="apps\srt-file-transmit.cpp" />
+    <ClCompile Include="apps\srt-live-transmit.cpp" />
+    <ClCompile Include="apps\srt-tunnel.cpp" />
+    <ClCompile Include="apps\transmitmedia.cpp" />
+    <ClCompile Include="apps\uriparser.cpp" />
+    <ClCompile Include="apps\verbose.cpp" />
+    <ClCompile Include="cmake_object_lib_support.c" />
+    <ClCompile Include="common\win_time.cpp" />
+    <ClCompile Include="examples\recvfile.cpp" />
+    <ClCompile Include="examples\recvlive.cpp" />
+    <ClCompile Include="examples\sendfile.cpp" />
+    <ClCompile Include="examples\test-c-client-bonding.c" />
+    <ClCompile Include="examples\test-c-client.c" />
+    <ClCompile Include="examples\test-c-server-bonding.c" />
+    <ClCompile Include="examples\test-c-server.c" />
+    <ClCompile Include="examples\testcapi-connect.c" />
+    <ClCompile Include="haicrypt\cryspr-gnutls.c" />
+    <ClCompile Include="haicrypt\cryspr-mbedtls.c" />
+    <ClCompile Include="haicrypt\cryspr-openssl.c" />
+    <ClCompile Include="haicrypt\cryspr.c" />
+    <ClCompile Include="haicrypt\haicrypt_log.cpp" />
+    <ClCompile Include="haicrypt\hcrypt.c" />
+    <ClCompile Include="haicrypt\hcrypt_ctx_rx.c" />
+    <ClCompile Include="haicrypt\hcrypt_ctx_tx.c" />
+    <ClCompile Include="haicrypt\hcrypt_rx.c" />
+    <ClCompile Include="haicrypt\hcrypt_sa.c" />
+    <ClCompile Include="haicrypt\hcrypt_tx.c" />
+    <ClCompile Include="haicrypt\hcrypt_xpt_srt.c" />
+    <ClCompile Include="haicrypt\z_hcrypt_ut.c" />
+    <ClCompile Include="srtcore\api.cpp" />
+    <ClCompile Include="srtcore\buffer.cpp" />
+    <ClCompile Include="srtcore\cache.cpp" />
+    <ClCompile Include="srtcore\channel.cpp" />
+    <ClCompile Include="srtcore\common.cpp" />
+    <ClCompile Include="srtcore\congctl.cpp" />
+    <ClCompile Include="srtcore\core.cpp" />
+    <ClCompile Include="srtcore\crypto.cpp" />
+    <ClCompile Include="srtcore\epoll.cpp" />
+    <ClCompile Include="srtcore\fec.cpp" />
+    <ClCompile Include="srtcore\handshake.cpp" />
+    <ClCompile Include="srtcore\list.cpp" />
+    <ClCompile Include="srtcore\md5.cpp" />
+    <ClCompile Include="srtcore\packet.cpp" />
+    <ClCompile Include="srtcore\packetfilter.cpp" />
+    <ClCompile Include="srtcore\queue.cpp" />
+    <ClCompile Include="srtcore\srt_compat.c" />
+    <ClCompile Include="srtcore\srt_c_api.cpp" />
+    <ClCompile Include="srtcore\sync.cpp" />
+    <ClCompile Include="srtcore\sync_cxx11.cpp" />
+    <ClCompile Include="srtcore\sync_posix.cpp" />
+    <ClCompile Include="srtcore\window.cpp" />
+    <ClCompile Include="testing\srt-test-file.cpp" />
+    <ClCompile Include="testing\srt-test-live.cpp" />
+    <ClCompile Include="testing\srt-test-mpbond.cpp" />
+    <ClCompile Include="testing\srt-test-multiplex.cpp" />
+    <ClCompile Include="testing\srt-test-relay.cpp" />
+    <ClCompile Include="testing\testmedia.cpp" />
+    <ClCompile Include="testing\utility-test.cpp" />
+    <ClCompile Include="test\test_buffer.cpp" />
+    <ClCompile Include="test\test_connection_timeout.cpp" />
+    <ClCompile Include="test\test_cryspr.cpp" />
+    <ClCompile Include="test\test_enforced_encryption.cpp" />
+    <ClCompile Include="test\test_epoll.cpp" />
+    <ClCompile Include="test\test_fec_rebuilding.cpp" />
+    <ClCompile Include="test\test_file_transmission.cpp" />
+    <ClCompile Include="test\test_list.cpp" />
+    <ClCompile Include="test\test_listen_callback.cpp" />
+    <ClCompile Include="test\test_many_connections.cpp" />
+    <ClCompile Include="test\test_seqno.cpp" />
+    <ClCompile Include="test\test_socket_options.cpp" />
+    <ClCompile Include="test\test_sync.cpp" />
+    <ClCompile Include="test\test_timer.cpp" />
+    <ClCompile Include="test\test_unitqueue.cpp" />
+    <ClCompile Include="test\test_utilities.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="apps\apputil.hpp" />
+    <ClInclude Include="apps\logsupport.hpp" />
+    <ClInclude Include="apps\socketoptions.hpp" />
+    <ClInclude Include="apps\transmitbase.hpp" />
+    <ClInclude Include="apps\transmitmedia.hpp" />
+    <ClInclude Include="apps\uriparser.hpp" />
+    <ClInclude Include="apps\verbose.hpp" />
+    <ClInclude Include="common\win\syslog_defs.h" />
+    <ClInclude Include="common\win\unistd.h" />
+    <ClInclude Include="common\win\wintime.h" />
+    <ClInclude Include="haicrypt\cryspr-config.h" />
+    <ClInclude Include="haicrypt\cryspr-gnutls.h" />
+    <ClInclude Include="haicrypt\cryspr-mbedtls.h" />
+    <ClInclude Include="haicrypt\cryspr-openssl.h" />
+    <ClInclude Include="haicrypt\cryspr.h" />
+    <ClInclude Include="haicrypt\haicrypt.h" />
+    <ClInclude Include="haicrypt\haicrypt_log.h" />
+    <ClInclude Include="haicrypt\hcrypt.h" />
+    <ClInclude Include="haicrypt\hcrypt_ctx.h" />
+    <ClInclude Include="haicrypt\hcrypt_msg.h" />
+    <ClInclude Include="srtcore\access_control.h" />
+    <ClInclude Include="srtcore\api.h" />
+    <ClInclude Include="srtcore\buffer.h" />
+    <ClInclude Include="srtcore\cache.h" />
+    <ClInclude Include="srtcore\channel.h" />
+    <ClInclude Include="srtcore\common.h" />
+    <ClInclude Include="srtcore\congctl.h" />
+    <ClInclude Include="srtcore\core.h" />
+    <ClInclude Include="srtcore\crypto.h" />
+    <ClInclude Include="srtcore\epoll.h" />
+    <ClInclude Include="srtcore\fec.h" />
+    <ClInclude Include="srtcore\handshake.h" />
+    <ClInclude Include="srtcore\list.h" />
+    <ClInclude Include="srtcore\logging.h" />
+    <ClInclude Include="srtcore\logging_api.h" />
+    <ClInclude Include="srtcore\md5.h" />
+    <ClInclude Include="srtcore\netinet_any.h" />
+    <ClInclude Include="srtcore\packet.h" />
+    <ClInclude Include="srtcore\packetfilter.h" />
+    <ClInclude Include="srtcore\packetfilter_api.h" />
+    <ClInclude Include="srtcore\packetfilter_builtin.h" />
+    <ClInclude Include="srtcore\platform_sys.h" />
+    <ClInclude Include="srtcore\queue.h" />
+    <ClInclude Include="srtcore\srt.h" />
+    <ClInclude Include="srtcore\srt_compat.h" />
+    <ClInclude Include="srtcore\sync.h" />
+    <ClInclude Include="srtcore\threadname.h" />
+    <ClInclude Include="srtcore\udt.h" />
+    <ClInclude Include="srtcore\utilities.h" />
+    <ClInclude Include="srtcore\window.h" />
+    <ClInclude Include="testing\testmedia.hpp" />
+    <ClInclude Include="testing\testmediabase.hpp" />
+    <ClInclude Include="version.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="srtcore\srt_shared.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
